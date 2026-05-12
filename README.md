@@ -23,6 +23,9 @@ We test normal kernels on H800 (~160 GB/s NVLink maximum bandwidth), with each c
 
 **News (2025.04.22)**: with optimizations from Tencent Network Platform Department, performance was enhanced by up to 30%, see [#130](https://github.com/deepseek-ai/DeepEP/pull/130) for more details. Thanks for the contribution!
 
+### Normal kernels without NVLink 
+**News （2025.09.25）**: Add PCIe kernel to support normal without NVLink, see [#375](https://github.com/deepseek-ai/DeepEP/pull/375).For more details, please refer to [PCIe kernel](docs/README_PCIe.md)
+
 ### Low-latency kernels with pure RDMA
 
 We test low-latency kernels on H800 with each connected to a CX7 InfiniBand 400 Gb/s RDMA network card (~50 GB/s maximum bandwidth). And we follow a typical DeepSeek-V3/R1 production setting (128 tokens per batch, 7168 hidden, top-8 experts, FP8 dispatching and BF16 combining).
@@ -290,6 +293,16 @@ def low_latency_combine(hidden_states: torch.Tensor,
 For two-micro-batch overlapping, you can refer to the following figure. With our receiving hook interface, the RDMA network traffic is happening in the background, without costing any GPU SMs from the computation part. But notice, the overlapped parts can be adjusted, i.e., the 4 parts of attention/dispatch/MoE/combine may not have the exact same execution time. You may adjust the stage settings according to your workload.
 
 ![low-latency](figures/low-latency.png)
+
+## Hybrid-EP with NIXL Integration (Experimental)
+
+Hybrid-EP is an optimized implementation developed by NVIDIA that uses TMA instructions and warp-level pipeline parallelism to minimize SM usage while maximizing network bandwidth. It supports both intra-node (NVLink) and inter-node (RDMA) communication. For full details, see the [Hybrid-EP documentation](docs/README_Hybrid-EP.md).
+
+As an alternative to the DOCA/RDMA inter-node path, Hybrid-EP now experimentally supports [NIXL](https://github.com/ai-dynamo/nixl) (NVIDIA Inter-node eXchange Library), which uses UCX for GPU-to-GPU transfers and does not require the DOCA SDK or NCCL submodule at build time.
+
+> **⚠️ Experimental**: The NIXL integration is experimental. Performance may not be ideal compared to the DOCA/RDMA path in all configurations.
+
+A complete example Dockerfile for building DeepEP with NIXL is provided at [`docs/Dockerfile.nixl`](docs/Dockerfile.nixl).
 
 ## Roadmap
 
