@@ -8,6 +8,7 @@
 #include <pwd.h>
 #include <sys/types.h>
 #include <stdexcept>
+#include <sstream>
 
 inline std::string get_env(std::string name) {
     const char* env = std::getenv(name.c_str());
@@ -145,11 +146,29 @@ std::string NVCCCompiler::build(std::string code, std::string signature, int loc
         compile_command = nvcc_path + " " + intra_node_flags + extra_flags + " " + source_path + " -o " + output_path;
     }
     
-    // Run the compile command
-    auto ret = std::system(compile_command.c_str());
+    // Run the compile command. Capture combined stdout/stderr via popen so the
+    // real nvcc diagnostics are surfaced when std::multiprocessing or other
+    // sandboxed runners swallow worker stderr.
+    std::string log_path = source_path + ".log";
+    std::string redirected = compile_command + " > " + log_path + " 2>&1";
+    auto ret = std::system(redirected.c_str());
     if (ret != 0) {
-        throw std::runtime_error("Failed to compile the code, compile command: " + compile_command);
+        std::string nvcc_output;
+        std::ifstream log_in(log_path);
+        if (log_in) {
+            std::stringstream ss;
+            ss << log_in.rdbuf();
+            nvcc_output = ss.str();
+        }
+        throw std::runtime_error(
+            "Failed to compile the code (nvcc exit=" + std::to_string(ret) + ").\n"
+            "Compile command:\n  " + compile_command + "\n"
+            "Source kept at: " + source_path + "\n"
+            "Log at: " + log_path + "\n"
+            "--- nvcc output ---\n" + nvcc_output);
     }
+    // Successful build: remove the log file
+    remove(log_path.c_str());
 
     // Remove the source file after compilation
     remove(source_path.c_str());
