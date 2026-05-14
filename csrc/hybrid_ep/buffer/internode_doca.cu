@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES.
 // All rights reserved
 #include "buffer/internode_doca.cuh"
+#include <torch/torch.h>
 #include <sstream>
 #include <cstdlib>
 #include <unordered_map>
